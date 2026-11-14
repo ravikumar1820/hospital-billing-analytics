@@ -1,1 +1,78 @@
+CREATE OR REFRESH MATERIALIZED VIEW gold_monthly_revenue AS
+
+SELECT
+    DATE_TRUNC('MONTH', visit_date) AS visit_month,
+
+    COUNT(DISTINCT visit_id) AS visits,
+
+    SUM(total_amount) AS total_revenue,
+
+    SUM(insurance_amount) AS insurance_amount
+
+FROM silver_billing_clean
+
+GROUP BY DATE_TRUNC('MONTH', visit_date);
+
+
+CREATE OR REFRESH MATERIALIZED VIEW gold_department_summary AS
+
+SELECT
+    department,
+
+    COUNT(DISTINCT visit_id) AS visits,
+
+    COUNT(bill_id) AS bills,
+
+    SUM(total_amount) AS total_revenue,
+
+    SUM(total_amount) /
+        NULLIF(COUNT(DISTINCT visit_id), 0)
+        AS avg_revenue_per_visit
+
+FROM silver_billing_clean
+
+GROUP BY department;
+
+
+CREATE OR REFRESH MATERIALIZED VIEW gold_branch_summary AS
+
+SELECT
+    region,
+    city,
+    hospital_branch,
+
+    COUNT(DISTINCT visit_id) AS visits,
+
+    SUM(total_amount) AS total_revenue
+
+FROM silver_billing_clean
+
+GROUP BY
+    region,
+    city,
+    hospital_branch;
+
+
+CREATE OR REFRESH MATERIALIZED VIEW gold_payer_summary AS
+
+SELECT
+    payer_type,
+
+    COUNT(DISTINCT visit_id) AS visits,
+
+    SUM(total_amount) AS total_revenue,
+
+    SUM(insurance_amount) AS insurance_amount,
+
+    SUM(
+        CASE
+            WHEN payment_status = 'Pending'
+            THEN total_amount
+            ELSE 0
+        END
+    ) AS pending_amount
+
+FROM silver_billing_clean
+
+GROUP BY payer_type;
 
