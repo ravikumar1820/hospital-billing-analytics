@@ -1,0 +1,60 @@
+
+CREATE OR REFRESH MATERIALIZED VIEW gold_data_quality AS
+
+SELECT
+    (SELECT COUNT(*)
+     FROM bronze_hospital_billing) AS bronze_rows,
+
+    (SELECT COUNT(*) - COUNT(DISTINCT bill_id)
+     FROM bronze_hospital_billing) AS duplicate_rows,
+
+    (SELECT COUNT(*)
+     FROM silver_billing_deduplicated) AS deduplicated_rows,
+
+    (SELECT COUNT(*)
+     FROM silver_billing_clean) AS clean_rows,
+
+    (SELECT COUNT(*)
+     FROM silver_billing_rejected) AS rejected_rows,
+
+    (SELECT COUNT(*)
+     FROM bronze_hospital_billing
+     WHERE quantity IS NULL OR quantity <= 0)
+        AS invalid_quantity_rows,
+
+    (SELECT COUNT(*)
+     FROM bronze_hospital_billing
+     WHERE unit_price IS NULL OR unit_price < 0)
+        AS invalid_price_rows,
+
+    (SELECT COUNT(*)
+     FROM bronze_hospital_billing
+     WHERE department IS NULL OR TRIM(department) = '')
+        AS missing_department_rows,
+
+    (SELECT COUNT(*)
+     FROM bronze_hospital_billing
+     WHERE payer_type IS NULL OR TRIM(payer_type) = '')
+        AS missing_payer_rows,
+
+    (SELECT COUNT(*)
+     FROM bronze_hospital_billing
+     WHERE total_amount IS NULL)
+        AS missing_amount_rows,
+
+    CASE
+        WHEN
+            (SELECT COUNT(*) FROM bronze_hospital_billing)
+            =
+            (SELECT COUNT(*) FROM silver_billing_clean)
+            +
+            (SELECT COUNT(*) FROM silver_billing_rejected)
+            +
+            (
+                (SELECT COUNT(*) FROM bronze_hospital_billing)
+                -
+                (SELECT COUNT(*) FROM silver_billing_deduplicated)
+            )
+        THEN 'PASS'
+        ELSE 'FAIL'
+    END AS reconciliation_status;
